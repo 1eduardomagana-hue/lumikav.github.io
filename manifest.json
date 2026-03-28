@@ -1,0 +1,9 @@
+{
+  "name": "Quijote Labs",
+  "short_name": "Q.Labs",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#84cc16",
+  "icons": []
+}

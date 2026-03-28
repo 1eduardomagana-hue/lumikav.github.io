@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Quijote Labs</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0f172a"/>
+
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Alpine -->
+  <script src="https://unpkg.com/alpinejs" defer></script>
+
+  <!-- AOS Animations -->
+  <link href="https://unpkg.com/aos@2.3.4/dist/aos.css" rel="stylesheet"/>
+  <script src="https://unpkg.com/aos@2.3.4/dist/aos.js"></script>
+
+  <link rel="manifest" href="manifest.json">
+
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+
+<body class="bg-slate-950 text-white">
+
+<!-- APP -->
+<div x-data="app()" x-init="init()">
+
+  <!-- HERO -->
+  <section class="h-screen flex flex-col justify-center items-center text-center px-6">
+    <h1 class="text-4xl font-bold mb-4" data-aos="fade-up">
+      Convierte lo que piensas en algo que funcione.
+    </h1>
+    <p class="text-gray-400" data-aos="fade-up" data-aos-delay="200">
+      No necesitas otra idea. Necesitas estructura.
+    </p>
+  </section>
+
+  <!-- STORY -->
+  <section class="h-screen flex flex-col justify-center px-6 bg-slate-900">
+    <div data-aos="fade-up">
+      <h2 class="text-3xl font-semibold mb-4">Quijote Labs</h2>
+      <p class="text-gray-400">
+        Muchos ven gigantes. Otros ven molinos.  
+        El problema nunca fue la visión.  
+        Fue la falta de estructura.
+      </p>
+    </div>
+  </section>
+
+  <!-- SANCHO INTRO -->
+  <section class="h-screen flex flex-col justify-center px-6">
+    <div data-aos="fade-up">
+      <h2 class="text-3xl font-semibold mb-4 text-lime-400">Sancho</h2>
+      <p class="text-gray-400">
+        El sistema que convierte tu caos en claridad.
+      </p>
+    </div>
+  </section>
+
+  <!-- FORM -->
+  <section class="min-h-screen px-6 py-20 bg-slate-900">
+    <h2 class="text-2xl mb-6 text-lime-400">Diagnóstico Inicial</h2>
+
+    <template x-for="(q, index) in questions" :key="index">
+      <div class="mb-6">
+        <p class="mb-2" x-text="q.text"></p>
+
+        <template x-for="option in q.options">
+          <label class="block text-gray-400">
+            <input type="checkbox" 
+              :value="option" 
+              @change="toggleAnswer(index, option)">
+            <span x-text="option"></span>
+          </label>
+        </template>
+      </div>
+    </template>
+
+    <button @click="analyze()" 
+      class="mt-6 bg-lime-400 text-black px-6 py-3 rounded-lg">
+      Analizar
+    </button>
+
+    <!-- RESULT -->
+    <div x-show="result" class="mt-10 p-4 bg-slate-800 rounded">
+      <h3 class="text-xl mb-2">Diagnóstico</h3>
+      <p x-text="result"></p>
+    </div>
+  </section>
+
+</div>
+
+<script>
+function app() {
+  return {
+    answers: {},
+    result: "",
+
+    questions: [
+      {
+        text: "¿Tu negocio tiene claridad en su modelo de ingresos?",
+        options: ["Sí", "Parcial", "No"]
+      },
+      {
+        text: "¿Tus procesos están documentados?",
+        options: ["Sí", "No", "Dependen de personas"]
+      },
+      {
+        text: "¿Puedes delegar sin que todo se rompa?",
+        options: ["Sí", "No"]
+      },
+      {
+        text: "¿Tus ventas son constantes o variables?",
+        options: ["Constantes", "Variables"]
+      },
+      {
+        text: "¿Sabes exactamente cuál es tu principal problema?",
+        options: ["Sí", "No", "Creo que sí"]
+      }
+    ],
+
+    toggleAnswer(qIndex, option) {
+      if (!this.answers[qIndex]) this.answers[qIndex] = [];
+      if (this.answers[qIndex].includes(option)) {
+        this.answers[qIndex] = this.answers[qIndex].filter(o => o !== option);
+      } else {
+        this.answers[qIndex].push(option);
+      }
+    },
+
+    analyze() {
+      let issues = [];
+
+      if (this.answers[0]?.includes("No")) {
+        issues.push("Falta de modelo de negocio claro");
+      }
+
+      if (this.answers[1]?.includes("No")) {
+        issues.push("Ausencia de procesos estructurados");
+      }
+
+      if (this.answers[2]?.includes("No")) {
+        issues.push("Dependencia operativa crítica");
+      }
+
+      if (this.answers[3]?.includes("Variables")) {
+        issues.push("Inestabilidad en ingresos");
+      }
+
+      if (this.answers[4]?.includes("No")) {
+        issues.push("Falta de claridad estratégica");
+      }
+
+      if (issues.length === 0) {
+        this.result = "Tienes una base sólida. El siguiente paso es optimización y escalabilidad.";
+      } else {
+        this.result = "Problemas detectados: " + issues.join(", ");
+      }
+    },
+
+    init() {
+      AOS.init();
+    }
+  }
+}
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js');
+}
+</script>
+
+</body>
+</html>
