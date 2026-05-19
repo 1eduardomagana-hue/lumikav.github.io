@@ -17,13 +17,17 @@ export interface PropertyFields {
   propertyType: string;
   location: string;
   price: string;
+  operationType: string;   // EN VENTA / EN RENTA / For Sale / For Rent
   bedrooms: string;
   bathrooms: string;
+  halfBaths: string;       // Medios baños
   builtArea: string;
   lotArea: string;
   parking: string;
+  maintenance: string;     // Mantenimiento mensual
   yearBuilt: string;
   status: string;
+  propertyId: string;      // ID interno
 }
 
 export interface UploadedImage {
