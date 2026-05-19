@@ -1,14 +1,19 @@
 import type { AdvisorInfo, MarketingCopy, PropertyFields } from './types';
 
 export const emptyFields: PropertyFields = {
-  title: '', propertyType: '', location: '', price: '', bedrooms: '',
-  bathrooms: '', builtArea: '', lotArea: '', parking: '', yearBuilt: '', status: ''
+  title: '', propertyType: '', location: '', price: '', operationType: '',
+  bedrooms: '', bathrooms: '', halfBaths: '', builtArea: '', lotArea: '',
+  parking: '', maintenance: '', yearBuilt: '', status: '', propertyId: ''
 };
 
 export const defaultAdvisor: AdvisorInfo = {
-  name: 'Isabella Rivera', phone: '+34 600 000 000', email: 'advisor@example.com',
-  company: 'Lumi Kav Estates', position: 'Luxury Property Advisor',
-  website: 'www.lumikav.com', whatsapp: '+34 600 000 000'
+  name: 'Martha Fitzmaurice',
+  position: 'Asesora Inmobiliaria Certificada',
+  company: '',
+  phone: '',
+  whatsapp: '9992397480',
+  email: 'marthafitz65@gmail.com',
+  website: '',
 };
 
 export const fallbackCopy: Record<'es' | 'en', MarketingCopy> = {
@@ -34,6 +39,16 @@ export const fallbackCopy: Record<'es' | 'en', MarketingCopy> = {
 
 export const fieldLabels: Record<keyof PropertyFields, string> = {
   title: 'Property name', propertyType: 'Property type', location: 'Location',
-  price: 'Price', bedrooms: 'Bedrooms', bathrooms: 'Bathrooms', builtArea: 'Built area',
-  lotArea: 'Lot area', parking: 'Parking', yearBuilt: 'Year built', status: 'Status'
+  price: 'Price', operationType: 'Operation', bedrooms: 'Bedrooms',
+  bathrooms: 'Bathrooms', halfBaths: 'Half baths', builtArea: 'Built area',
+  lotArea: 'Lot area', parking: 'Parking', maintenance: 'Maintenance',
+  yearBuilt: 'Year built', status: 'Status', propertyId: 'Property ID'
+};
+
+export const fieldLabelsEs: Record<keyof PropertyFields, string> = {
+  title: 'Nombre', propertyType: 'Tipo', location: 'Ubicación',
+  price: 'Precio', operationType: 'Operación', bedrooms: 'Recámaras',
+  bathrooms: 'Baños', halfBaths: 'Medios baños', builtArea: 'Construcción',
+  lotArea: 'Terreno', parking: 'Estacionamientos', maintenance: 'Mantenimiento',
+  yearBuilt: 'Año', status: 'Estado', propertyId: 'ID'
 };
