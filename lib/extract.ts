@@ -39,8 +39,20 @@ export function deterministicExtract(rawText: string, currentFields = emptyField
     fields,
     missingFields,
     copy: {
-      es: { ...fallbackCopy.es, headline: `${base}: elegancia contemporánea${locationEs}`, subheadline: `${fields.propertyType || 'Propiedad'} exclusiva con espacios pensados para disfrutar cada día`, description: `${base} combina una presencia sofisticada con características prácticas para una vida cómoda y memorable.`, lifestyle: 'Una propuesta residencial orientada al bienestar: luz, amplitud y detalles que transforman cada ambiente en una experiencia de alto nivel.' },
-      en: { ...fallbackCopy.en, headline: `${base}: contemporary elegance${location}`, subheadline: `An exclusive ${fields.propertyType || 'property'} designed for effortless everyday living`, description: `${base} brings together a sophisticated presence and practical features for a comfortable, memorable lifestyle.`, lifestyle: 'A residential offering centered on wellbeing: natural light, generous spaces, and details that turn every room into an elevated experience.' }
+      es: {
+        ...fallbackCopy.es,
+        headline: `${base}: elegancia contemporánea${locationEs}`,
+        subheadline: `${fields.propertyType || 'Propiedad'} exclusiva con espacios pensados para disfrutar cada día`,
+        description: `${base} combina una presencia sofisticada con características prácticas para una vida cómoda y memorable.`,
+        lifestyle: 'Una propuesta residencial orientada al bienestar: luz, amplitud y detalles que transforman cada ambiente en una experiencia de alto nivel.'
+      },
+      en: {
+        ...fallbackCopy.en,
+        headline: `${base}: contemporary elegance${location}`,
+        subheadline: `An exclusive ${fields.propertyType || 'property'} designed for effortless everyday living`,
+        description: `${base} brings together a sophisticated presence and practical features for a comfortable, memorable lifestyle.`,
+        lifestyle: 'A residential offering centered on wellbeing: natural light, generous spaces, and details that turn every room into an elevated experience.'
+      }
     }
   };
 }
