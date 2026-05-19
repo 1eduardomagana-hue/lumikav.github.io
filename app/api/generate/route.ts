@@ -1,11 +1,11 @@
-import React from 'react';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { fallbackCopy } from '@/lib/defaults';
-import { PropertyPdfDocument } from '@/lib/pdf-templates';
+import { buildFlyerHtml } from '@/lib/flyer-template';
 import type { GeneratedPdf, GenerationPayload, Language } from '@/lib/types';
 
 export const runtime = 'nodejs';
+export const maxDuration = 60;
 
 const schema = z.object({
   rawText: z.string().optional(),
@@ -20,29 +20,63 @@ function safeName(value: string) {
   return (value || 'property').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 60);
 }
 
-export async function POST(request: Request) {
-  const { renderToBuffer } = await import('@react-pdf/renderer');
-  const payload = schema.parse(await request.json()) as unknown as GenerationPayload;
-  const copy = payload.copy ?? fallbackCopy;
-  const languages: Language[] = ['es', 'en'];
+async function htmlToPdf(html: string): Promise<Buffer> {
+  const chromium = (await import('@sparticuz/chromium')).default;
+  const puppeteer = (await import('puppeteer-core')).default;
 
-  const pdfs: GeneratedPdf[] = await Promise.all(languages.map(async (language) => {
-    const document = React.createElement(PropertyPdfDocument, {
-      language,
-      fields: payload.fields,
-      copy: (copy as Record<Language, typeof fallbackCopy['es']>)[language] ?? fallbackCopy[language],
-      advisor: payload.advisor,
-      images: payload.images,
-      template: payload.template
+  const browser = await puppeteer.launch({
+    args: chromium.args,
+    defaultViewport: { width: 860, height: 1200 },
+    executablePath: await chromium.executablePath(),
+    headless: true,
+  });
+
+  try {
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'load' });
+    // Wait for fonts
+    await page.evaluate(() => document.fonts.ready);
+    const pdf = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: { top: '0', right: '0', bottom: '0', left: '0' },
     });
-    const buffer = await renderToBuffer(document);
+    return Buffer.from(pdf);
+  } finally {
+    await browser.close();
+  }
+}
+
+export async function POST(request: Request) {
+  const payload = schema.parse(await request.json()) as unknown as GenerationPayload;
+  const copy = (payload.copy ?? fallbackCopy) as Record<Language, typeof fallbackCopy['es']>;
+  const languages: Language[] = ['es', 'en'];
+  const name = safeName(payload.fields.title as string);
+
+  // Build HTMLs first
+  const htmls: Record<Language, string> = {
+    es: buildFlyerHtml({ lang: 'es', fields: payload.fields, copy: copy['es'] ?? fallbackCopy['es'], advisor: payload.advisor, images: payload.images }),
+    en: buildFlyerHtml({ lang: 'en', fields: payload.fields, copy: copy['en'] ?? fallbackCopy['en'], advisor: payload.advisor, images: payload.images }),
+  };
+
+  // Generate PDFs in parallel
+  const pdfs: GeneratedPdf[] = await Promise.all(languages.map(async (language) => {
+    const buffer = await htmlToPdf(htmls[language]);
     return {
       language,
-      filename: `${safeName(payload.fields.title as string)}-${payload.template}-${language}.pdf`,
-      base64: Buffer.from(buffer).toString('base64'),
-      mimeType: 'application/pdf' as const
+      filename: `${name}-flyer-${language}.pdf`,
+      base64: buffer.toString('base64'),
+      mimeType: 'application/pdf' as const,
     };
   }));
 
-  return NextResponse.json({ pdfs, generatedAt: new Date().toISOString() });
+  // Return PDFs + raw HTML for direct download
+  return NextResponse.json({
+    pdfs,
+    html: {
+      es: { filename: `${name}-flyer-es.html`, base64: Buffer.from(htmls.es).toString('base64') },
+      en: { filename: `${name}-flyer-en.html`, base64: Buffer.from(htmls.en).toString('base64') },
+    },
+    generatedAt: new Date().toISOString(),
+  });
 }
