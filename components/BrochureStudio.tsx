@@ -145,11 +145,29 @@ const t: Record<UILang, Record<string, string>> = {
 
 const fieldKeys = Object.keys(emptyFields) as (keyof PropertyFields)[];
 
-function fileToDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
+// Compress image to max 900px wide/tall, JPEG quality 0.72 — keeps payload under Vercel's 4.5MB limit
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
     reader.onerror = reject;
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        const MAX = 900;
+        let { width, height } = img;
+        if (width > MAX || height > MAX) {
+          if (width > height) { height = Math.round(height * MAX / width); width = MAX; }
+          else { width = Math.round(width * MAX / height); height = MAX; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext('2d')!.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.72));
+      };
+      img.src = String(reader.result);
+    };
     reader.readAsDataURL(file);
   });
 }
@@ -254,6 +272,21 @@ export default function BrochureStudio() {
 
   function chooseCover(id: string) {
     setImages((current) => current.map((image) => ({ ...image, role: image.id === id ? 'cover' as const : 'gallery' as const })));
+  }
+
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  function deleteSelected() {
+    setImages((current) => current.filter((img) => !selectedIds.has(img.id)));
+    setSelectedIds(new Set());
   }
 
   async function extractWithAi() {
@@ -390,27 +423,54 @@ export default function BrochureStudio() {
                   <p className="field-label">{i.images_label}</p>
                   <h2 className="font-serif text-3xl text-estate-green">{i.images_title}</h2>
                 </div>
-                <label className="green-button cursor-pointer">
-                  <ImagePlus className="h-4 w-4" />{i.add_photos}
-                  <input type="file" multiple accept="image/*" className="hidden" onChange={(e) => handleImages(e.target.files)} />
-                </label>
+                <div className="flex items-center gap-2">
+                  {selectedIds.size > 0 && (
+                    <button onClick={deleteSelected} className="inline-flex items-center gap-1.5 rounded-full bg-red-500 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-red-600">
+                      <Trash2 className="h-3.5 w-3.5" />
+                      {uiLang === 'es' ? `Eliminar (${selectedIds.size})` : `Delete (${selectedIds.size})`}
+                    </button>
+                  )}
+                  <label className="green-button cursor-pointer">
+                    <ImagePlus className="h-4 w-4" />{i.add_photos}
+                    <input type="file" multiple accept="image/*" className="hidden" onChange={(e) => handleImages(e.target.files)} />
+                  </label>
+                </div>
               </div>
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {images.map((image, index) => (
-                  <div key={image.id} className="overflow-hidden rounded-3xl border border-estate-green/10 bg-estate-cream">
-                    <img src={image.dataUrl} alt={image.name} className="h-40 w-full object-cover" />
-                    <div className="flex items-center justify-between gap-2 p-3 text-xs">
-                      <button className="ghost-button !px-3 !py-1" onClick={() => chooseCover(image.id)}>
-                        {image.role === 'cover' ? i.set_cover : i.cover_btn}
-                      </button>
-                      <div className="flex gap-1">
-                        <button className="ghost-button !px-2 !py-1" onClick={() => moveImage(index, -1)}><GripVertical className="h-3 w-3" />{i.up}</button>
-                        <button className="ghost-button !px-2 !py-1" onClick={() => moveImage(index, 1)}>{i.down}</button>
-                        <button className="ghost-button !px-2 !py-1" onClick={() => setImages((c) => c.filter((img) => img.id !== image.id))}><Trash2 className="h-3 w-3" /></button>
+                {images.map((image, index) => {
+                  const isSelected = selectedIds.has(image.id);
+                  return (
+                    <div key={image.id} className={`overflow-hidden rounded-3xl border-2 bg-estate-cream transition ${isSelected ? 'border-red-400 shadow-md' : 'border-estate-green/10'}`}>
+                      {/* Image with checkbox overlay */}
+                      <div className="relative">
+                        <img src={image.dataUrl} alt={image.name} className="h-40 w-full object-cover" />
+                        {/* Checkbox top-left */}
+                        <button
+                          onClick={() => toggleSelect(image.id)}
+                          className={`absolute left-2 top-2 flex h-6 w-6 items-center justify-center rounded-full border-2 transition ${isSelected ? 'border-red-400 bg-red-400 text-white' : 'border-white/70 bg-black/30 text-white hover:bg-black/50'}`}
+                        >
+                          {isSelected && <Check className="h-3.5 w-3.5" />}
+                        </button>
+                        {/* Cover badge */}
+                        {image.role === 'cover' && (
+                          <span className="absolute right-2 top-2 rounded-full bg-estate-gold px-2 py-0.5 text-[10px] font-bold text-estate-deep">
+                            {uiLang === 'es' ? 'PORTADA' : 'COVER'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between gap-2 p-3 text-xs">
+                        <button className="ghost-button !px-3 !py-1" onClick={() => chooseCover(image.id)}>
+                          {image.role === 'cover' ? i.set_cover : i.cover_btn}
+                        </button>
+                        <div className="flex gap-1">
+                          <button className="ghost-button !px-2 !py-1" onClick={() => moveImage(index, -1)}><GripVertical className="h-3 w-3" />{i.up}</button>
+                          <button className="ghost-button !px-2 !py-1" onClick={() => moveImage(index, 1)}>{i.down}</button>
+                          <button className="ghost-button !px-2 !py-1 text-red-500 hover:border-red-300" onClick={() => { setImages((c) => c.filter((img) => img.id !== image.id)); setSelectedIds((s) => { const n = new Set(s); n.delete(image.id); return n; }); }}><Trash2 className="h-3 w-3" /></button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
                 {images.length === 0 && (
                   <div className="rounded-3xl border border-dashed border-estate-green/30 p-8 text-sm text-estate-green/70">{i.no_photos}</div>
                 )}
