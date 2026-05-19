@@ -26,7 +26,7 @@ const t: Record<UILang, Record<string, string>> = {
     feat_email: 'Envío por email',
     prop_label: 'Datos de la propiedad',
     prop_title: 'Notas y campos estructurados',
-    prop_placeholder: 'Pega notas, texto de MLS, WhatsApp o borrador del listing...',
+    prop_placeholder: 'Escribe o pega aquí cualquier información de la propiedad.\n\nEjemplos de lo que puedes incluir:\n· Nombre o proyecto (ej. "Residencia Las Palmas")\n· Tipo de propiedad (casa, departamento, local...)\n· Ubicación o colonia\n· Precio y tipo de operación (venta / renta)\n· Superficie construida y/o terreno\n· Número de recámaras, baños, estacionamientos\n· Amenidades o características especiales\n· Cualquier texto del desarrollador, MLS o WhatsApp\n\nLa IA extraerá los datos clave y generará el copy automáticamente.',
     ai_btn: 'Extraer con IA',
     missing: 'Campos faltantes:',
     images_label: 'Imágenes y assets',
@@ -43,10 +43,12 @@ const t: Record<UILang, Record<string, string>> = {
     preview_label: 'Vista previa y generación',
     tpl_a: 'Plantilla A',
     tpl_b: 'Plantilla B',
-    generate_btn: 'Generar PDFs ES + EN',
+    generate_btn: 'Generar flyer + PDFs',
     dl_es: 'Descargar PDF Español',
     dl_en: 'Descargar PDF Inglés',
-    dl_both: 'Descargar ambos',
+    dl_both: 'Descargar ambos PDFs',
+    dl_html_es: 'Flyer HTML (ES)',
+    dl_html_en: 'Flyer HTML (EN)',
     email_label: 'Envío por email',
     email_title: 'Enviar PDFs',
     email_placeholder: 'cliente@ejemplo.com, equipo@ejemplo.com',
@@ -68,8 +70,8 @@ const t: Record<UILang, Record<string, string>> = {
     status_extracting: 'Extrayendo datos y escribiendo copy bilingüe...',
     status_extracted: 'Extracción completa',
     status_missing: 'Revisa los campos faltantes antes de generar.',
-    status_generating: 'Generando PDFs en español e inglés...',
-    status_generated: 'Ambos PDFs bilingües listos para descargar o enviar.',
+    status_generating: 'Generando flyers y PDFs bilingües...',
+    status_generated: 'Flyers y PDFs listos. Descarga el HTML para compartir como imagen.',
     status_sending: 'Enviando PDFs seleccionados...',
     status_simulated: 'Email simulado. Configura RESEND_API_KEY para envíos reales.',
     status_sent: 'Email enviado correctamente.',
@@ -92,7 +94,7 @@ const t: Record<UILang, Record<string, string>> = {
     feat_email: 'Resend email',
     prop_label: 'Property input',
     prop_title: 'Raw notes and structured fields',
-    prop_placeholder: 'Paste property notes, MLS text, WhatsApp brief, or listing draft...',
+    prop_placeholder: 'Type or paste any property information here.\n\nExamples of what to include:\n· Property name or project\n· Property type (house, apartment, office...)\n· Location or neighborhood\n· Price and operation type (sale / rent)\n· Built area and/or lot size\n· Bedrooms, bathrooms, parking spaces\n· Amenities or special features\n· Any developer text, MLS listing, or WhatsApp notes\n\nAI will extract the key data and write the copy automatically.',
     ai_btn: 'AI extract',
     missing: 'Missing fields:',
     images_label: 'Images and assets',
@@ -109,10 +111,12 @@ const t: Record<UILang, Record<string, string>> = {
     preview_label: 'Preview and generation',
     tpl_a: 'Template A',
     tpl_b: 'Template B',
-    generate_btn: 'Generate ES + EN PDFs',
+    generate_btn: 'Generate flyer + PDFs',
     dl_es: 'Download Spanish PDF',
     dl_en: 'Download English PDF',
-    dl_both: 'Download both',
+    dl_both: 'Download both PDFs',
+    dl_html_es: 'HTML Flyer (ES)',
+    dl_html_en: 'HTML Flyer (EN)',
     email_label: 'Email delivery',
     email_title: 'Send PDFs',
     email_placeholder: 'client@example.com, team@example.com',
@@ -134,8 +138,8 @@ const t: Record<UILang, Record<string, string>> = {
     status_extracting: 'Extracting facts and writing bilingual premium copy...',
     status_extracted: 'Extraction complete',
     status_missing: 'Review missing fields before generating.',
-    status_generating: 'Generating Spanish and English PDFs in one request...',
-    status_generated: 'Both bilingual PDFs are ready to download or email.',
+    status_generating: 'Generating bilingual flyers and PDFs...',
+    status_generated: 'Flyers and PDFs ready. Download HTML to share as image.',
     status_sending: 'Sending selected PDFs...',
     status_simulated: 'Email simulated. Configure RESEND_API_KEY to send live emails.',
     status_sent: 'Email sent successfully.',
@@ -179,6 +183,13 @@ function downloadPdf(pdf: GeneratedPdf) {
   link.click();
 }
 
+function downloadHtml(item: { filename: string; base64: string }) {
+  const link = document.createElement('a');
+  link.href = `data:text/html;base64,${item.base64}`;
+  link.download = item.filename;
+  link.click();
+}
+
 function templateLabel(template: TemplateId, lang: UILang) {
   return template === 'premium-brochure'
     ? lang === 'es' ? 'Plantilla A · Brochure premium' : 'Template A · Premium brochure'
@@ -215,7 +226,7 @@ export default function BrochureStudio() {
     { key: 'website', label: i.adv_web }
   ];
 
-  const [rawText, setRawText] = useState('Villa Aurora\nUbicación: Marbella Golden Mile\nPrecio: €2,950,000\n4 habitaciones, 4 baños\nÁrea construida: 420 m²\nTerreno: 980 m²\nParking: 3 plazas\nTerrazas amplias, piscina privada, vistas al mar, cocina de diseño y suite principal con vestidor.');
+  const [rawText, setRawText] = useState('');
   const [fields, setFields] = useState<PropertyFields>({ ...emptyFields });
   const [advisor, setAdvisor] = useState<AdvisorInfo>({ ...defaultAdvisor });
   const [images, setImages] = useState<UploadedImage[]>([]);
@@ -223,6 +234,7 @@ export default function BrochureStudio() {
   const [copy, setCopy] = useState<Record<Language, MarketingCopy>>(fallbackCopy);
   const [missingFields, setMissingFields] = useState<string[]>([]);
   const [pdfs, setPdfs] = useState<GeneratedPdf[]>([]);
+  const [htmlFlyers, setHtmlFlyers] = useState<Record<string, { filename: string; base64: string }>>({});
   const [history, setHistory] = useState<string[]>([]);
   const [sendHistory, setSendHistory] = useState<string[]>([]);
   const [recipients, setRecipients] = useState('');
@@ -319,8 +331,9 @@ export default function BrochureStudio() {
         body: JSON.stringify(payload)
       });
       if (!response.ok) throw new Error(await response.text());
-      const result = await response.json() as { pdfs: GeneratedPdf[]; generatedAt: string };
+      const result = await response.json() as { pdfs: GeneratedPdf[]; html: Record<string, { filename: string; base64: string }>; generatedAt: string };
       setPdfs(result.pdfs);
+      setHtmlFlyers(result.html ?? {});
       setHistory((current) => [`${new Date(result.generatedAt).toLocaleString()} · ${templateLabel(template, uiLang)} · ${fields.title || (uiLang === 'es' ? 'Propiedad sin título' : 'Untitled property')}`, ...current].slice(0, 8));
       setStatus(i.status_generated);
     } catch (error) {
@@ -352,8 +365,10 @@ export default function BrochureStudio() {
 
   const fieldLabelsI18n: Record<keyof PropertyFields, string> = uiLang === 'es' ? {
     title: 'Nombre', propertyType: 'Tipo', location: 'Ubicación', price: 'Precio',
-    bedrooms: 'Habitaciones', bathrooms: 'Baños', builtArea: 'Área construida',
-    lotArea: 'Terreno', parking: 'Estacionamiento', yearBuilt: 'Año', status: 'Estado'
+    operationType: 'Operación', bedrooms: 'Recámaras', bathrooms: 'Baños',
+    halfBaths: 'Medios baños', builtArea: 'Construcción', lotArea: 'Terreno',
+    parking: 'Estacionamientos', maintenance: 'Mantenimiento',
+    yearBuilt: 'Año', status: 'Estado', propertyId: 'ID interno'
   } : fieldLabels;
 
   return (
@@ -511,7 +526,8 @@ export default function BrochureStudio() {
                 <FileText className="h-4 w-4" />{i.generate_btn}
               </button>
               {pdfs.length > 0 && (
-                <div className="mt-5 space-y-3">
+                <div className="mt-5 space-y-2">
+                  <p className="field-label mt-1">PDFs</p>
                   {pdfs.map((pdf) => (
                     <button key={pdf.language} onClick={() => downloadPdf(pdf)} className="ghost-button w-full">
                       <ArrowDownToLine className="h-4 w-4" />
@@ -521,6 +537,21 @@ export default function BrochureStudio() {
                   <button onClick={() => pdfs.forEach(downloadPdf)} className="green-button w-full">
                     <ArrowDownToLine className="h-4 w-4" />{i.dl_both}
                   </button>
+                  {Object.keys(htmlFlyers).length > 0 && (
+                    <>
+                      <p className="field-label mt-3">{uiLang === 'es' ? 'Flyer HTML (para screenshot/WhatsApp)' : 'HTML Flyer (for screenshot/WhatsApp)'}</p>
+                      {htmlFlyers['es'] && (
+                        <button onClick={() => downloadHtml(htmlFlyers['es'])} className="ghost-button w-full text-estate-gold border-estate-gold/40 hover:border-estate-gold">
+                          <FileText className="h-4 w-4" />{i.dl_html_es}
+                        </button>
+                      )}
+                      {htmlFlyers['en'] && (
+                        <button onClick={() => downloadHtml(htmlFlyers['en'])} className="ghost-button w-full text-estate-gold border-estate-gold/40 hover:border-estate-gold">
+                          <FileText className="h-4 w-4" />{i.dl_html_en}
+                        </button>
+                      )}
+                    </>
+                  )}
                 </div>
               )}
             </section>
