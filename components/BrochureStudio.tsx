@@ -5,13 +5,145 @@ import { useMemo, useState } from 'react';
 import { defaultAdvisor, emptyFields, fallbackCopy, fieldLabels } from '@/lib/defaults';
 import type { AdvisorInfo, AiExtractionResult, GeneratedPdf, GenerationPayload, Language, MarketingCopy, PropertyFields, TemplateId, UploadedImage } from '@/lib/types';
 
+// ── UI language (interface) vs PDF language (output) ──────────────────────────
+type UILang = 'es' | 'en';
+
+const t: Record<UILang, Record<string, string>> = {
+  es: {
+    eyebrow: 'LumiKav Brochure Studio',
+    hero_title: 'PDFs inmobiliarios premium en español e inglés.',
+    hero_desc: 'Sube notas de la propiedad, completa los datos del asesor, elige una plantilla y genera folletos bilingües en una sola solicitud.',
+    flow_label: 'Flujo de producción',
+    flow_1: '1. Pega el texto de la propiedad y completa los campos.',
+    flow_2: '2. Sube fotos, reordénalas y elige la portada.',
+    flow_3: '3. Deja que la IA extraiga datos y escriba el copy bilingüe.',
+    flow_4: '4. Genera los PDFs en español e inglés juntos.',
+    flow_5: '5. Descarga uno, los dos, o envíalos por email.',
+    feat_ai: 'Extracción con IA',
+    feat_advisor: 'Perfil de asesor editable',
+    feat_photos: 'Ordenar fotos',
+    feat_pdf: 'Descarga PDFs',
+    feat_email: 'Envío por email',
+    prop_label: 'Datos de la propiedad',
+    prop_title: 'Notas y campos estructurados',
+    prop_placeholder: 'Pega notas, texto de MLS, WhatsApp o borrador del listing...',
+    ai_btn: 'Extraer con IA',
+    missing: 'Campos faltantes:',
+    images_label: 'Imágenes y assets',
+    images_title: 'Sube, reordena y elige la portada',
+    add_photos: 'Agregar fotos',
+    set_cover: 'Portada',
+    cover_btn: 'Poner como portada',
+    up: 'Arriba',
+    down: 'Abajo',
+    no_photos: 'Sin fotos aún. El PDF se generará con un layout editorial mínimo.',
+    advisor_label: 'Perfil del asesor',
+    advisor_title: 'Información dinámica del asesor',
+    logo: 'Logo',
+    preview_label: 'Vista previa y generación',
+    tpl_a: 'Plantilla A',
+    tpl_b: 'Plantilla B',
+    generate_btn: 'Generar PDFs ES + EN',
+    dl_es: 'Descargar PDF Español',
+    dl_en: 'Descargar PDF Inglés',
+    dl_both: 'Descargar ambos',
+    email_label: 'Envío por email',
+    email_title: 'Enviar PDFs',
+    email_placeholder: 'cliente@ejemplo.com, equipo@ejemplo.com',
+    send_both: 'Enviar ambos PDFs',
+    send_es: 'Solo español',
+    send_en: 'Solo inglés',
+    send_btn: 'Enviar seleccionados',
+    history_label: 'Historial',
+    history_title: 'Registro de generaciones y envíos',
+    no_history: 'Sin historial aún.',
+    adv_name: 'Nombre del asesor',
+    adv_pos: 'Cargo',
+    adv_company: 'Empresa',
+    adv_phone: 'Teléfono',
+    adv_wa: 'WhatsApp',
+    adv_email: 'Email',
+    adv_web: 'Sitio web',
+    status_ready: 'Listo para crear PDFs bilingües premium.',
+    status_extracting: 'Extrayendo datos y escribiendo copy bilingüe...',
+    status_extracted: 'Extracción completa',
+    status_missing: 'Revisa los campos faltantes antes de generar.',
+    status_generating: 'Generando PDFs en español e inglés...',
+    status_generated: 'Ambos PDFs bilingües listos para descargar o enviar.',
+    status_sending: 'Enviando PDFs seleccionados...',
+    status_simulated: 'Email simulado. Configura RESEND_API_KEY para envíos reales.',
+    status_sent: 'Email enviado correctamente.',
+    status_error: 'Error',
+  },
+  en: {
+    eyebrow: 'LumiKav Brochure Studio',
+    hero_title: 'Premium real estate PDFs in Spanish and English.',
+    hero_desc: 'Upload raw property notes, complete advisor details, choose a polished template, and generate bilingual marketing brochures in one request.',
+    flow_label: 'Production flow',
+    flow_1: '1. Paste raw copy and optionally complete structured fields.',
+    flow_2: '2. Upload photos, reorder them, and select the hero cover.',
+    flow_3: '3. Let AI extract missing facts and write bilingual luxury copy.',
+    flow_4: '4. Generate Spanish and English PDFs together.',
+    flow_5: '5. Download one, download both, or send selected PDFs by email.',
+    feat_ai: 'AI extraction',
+    feat_advisor: 'Editable advisor profile',
+    feat_photos: 'Photo ordering',
+    feat_pdf: 'PDF downloads',
+    feat_email: 'Resend email',
+    prop_label: 'Property input',
+    prop_title: 'Raw notes and structured fields',
+    prop_placeholder: 'Paste property notes, MLS text, WhatsApp brief, or listing draft...',
+    ai_btn: 'AI extract',
+    missing: 'Missing fields:',
+    images_label: 'Images and assets',
+    images_title: 'Upload, reorder, and choose the cover',
+    add_photos: 'Add photos',
+    set_cover: 'Cover',
+    cover_btn: 'Set cover',
+    up: 'Up',
+    down: 'Down',
+    no_photos: 'No photos uploaded yet. The PDF will still generate with a minimal editorial layout.',
+    advisor_label: 'Advisor profile',
+    advisor_title: 'Editable dynamic advisor information',
+    logo: 'Logo',
+    preview_label: 'Preview and generation',
+    tpl_a: 'Template A',
+    tpl_b: 'Template B',
+    generate_btn: 'Generate ES + EN PDFs',
+    dl_es: 'Download Spanish PDF',
+    dl_en: 'Download English PDF',
+    dl_both: 'Download both',
+    email_label: 'Email delivery',
+    email_title: 'Send PDFs',
+    email_placeholder: 'client@example.com, team@example.com',
+    send_both: 'Send both PDFs',
+    send_es: 'Spanish only',
+    send_en: 'English only',
+    send_btn: 'Send selected',
+    history_label: 'History',
+    history_title: 'Generation and send log',
+    no_history: 'No history yet.',
+    adv_name: 'Advisor name',
+    adv_pos: 'Position',
+    adv_company: 'Company',
+    adv_phone: 'Phone',
+    adv_wa: 'WhatsApp',
+    adv_email: 'Email',
+    adv_web: 'Website',
+    status_ready: 'Ready to create premium bilingual PDFs.',
+    status_extracting: 'Extracting facts and writing bilingual premium copy...',
+    status_extracted: 'Extraction complete',
+    status_missing: 'Review missing fields before generating.',
+    status_generating: 'Generating Spanish and English PDFs in one request...',
+    status_generated: 'Both bilingual PDFs are ready to download or email.',
+    status_sending: 'Sending selected PDFs...',
+    status_simulated: 'Email simulated. Configure RESEND_API_KEY to send live emails.',
+    status_sent: 'Email sent successfully.',
+    status_error: 'Error',
+  }
+};
+
 const fieldKeys = Object.keys(emptyFields) as (keyof PropertyFields)[];
-const advisorFields: { key: keyof AdvisorInfo; label: string; type?: string }[] = [
-  { key: 'name', label: 'Advisor name' }, { key: 'position', label: 'Position' },
-  { key: 'company', label: 'Company' }, { key: 'phone', label: 'Phone' },
-  { key: 'whatsapp', label: 'WhatsApp' }, { key: 'email', label: 'Email', type: 'email' },
-  { key: 'website', label: 'Website' }
-];
 
 function fileToDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -29,11 +161,42 @@ function downloadPdf(pdf: GeneratedPdf) {
   link.click();
 }
 
-function templateLabel(template: TemplateId) {
-  return template === 'premium-brochure' ? 'Template A · Premium brochure' : 'Template B · Technical sheet';
+function templateLabel(template: TemplateId, lang: UILang) {
+  return template === 'premium-brochure'
+    ? lang === 'es' ? 'Plantilla A · Brochure premium' : 'Template A · Premium brochure'
+    : lang === 'es' ? 'Plantilla B · Ficha técnica' : 'Template B · Technical sheet';
+}
+
+function LangToggle({ lang, setLang }: { lang: UILang; setLang: (l: UILang) => void }) {
+  return (
+    <div className="flex items-center gap-1 rounded-full border border-white/20 bg-white/10 p-1 backdrop-blur">
+      <button
+        onClick={() => setLang('es')}
+        className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition ${lang === 'es' ? 'bg-white text-estate-deep shadow-sm' : 'text-white/70 hover:text-white'}`}
+      >
+        <span className="text-base leading-none">🇲🇽</span> ES
+      </button>
+      <button
+        onClick={() => setLang('en')}
+        className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition ${lang === 'en' ? 'bg-white text-estate-deep shadow-sm' : 'text-white/70 hover:text-white'}`}
+      >
+        <span className="text-base leading-none">🇺🇸</span> EN
+      </button>
+    </div>
+  );
 }
 
 export default function BrochureStudio() {
+  const [uiLang, setUiLang] = useState<UILang>('es');
+  const i = t[uiLang];
+
+  const advisorFields: { key: keyof AdvisorInfo; label: string; type?: string }[] = [
+    { key: 'name', label: i.adv_name }, { key: 'position', label: i.adv_pos },
+    { key: 'company', label: i.adv_company }, { key: 'phone', label: i.adv_phone },
+    { key: 'whatsapp', label: i.adv_wa }, { key: 'email', label: i.adv_email, type: 'email' },
+    { key: 'website', label: i.adv_web }
+  ];
+
   const [rawText, setRawText] = useState('Villa Aurora\nUbicación: Marbella Golden Mile\nPrecio: €2,950,000\n4 habitaciones, 4 baños\nÁrea construida: 420 m²\nTerreno: 980 m²\nParking: 3 plazas\nTerrazas amplias, piscina privada, vistas al mar, cocina de diseño y suite principal con vestidor.');
   const [fields, setFields] = useState<PropertyFields>({ ...emptyFields });
   const [advisor, setAdvisor] = useState<AdvisorInfo>({ ...defaultAdvisor });
@@ -46,8 +209,10 @@ export default function BrochureStudio() {
   const [sendHistory, setSendHistory] = useState<string[]>([]);
   const [recipients, setRecipients] = useState('');
   const [emailSelection, setEmailSelection] = useState<'both' | Language>('both');
-  const [status, setStatus] = useState('Ready to create premium bilingual PDFs.');
+  const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
+
+  const currentStatus = status || i.status_ready;
 
   const selectedEmailPdfs = useMemo(() => {
     if (emailSelection === 'both') return pdfs;
@@ -93,7 +258,7 @@ export default function BrochureStudio() {
 
   async function extractWithAi() {
     setBusy(true);
-    setStatus('Extracting facts and writing bilingual premium copy...');
+    setStatus(i.status_extracting);
     try {
       const response = await fetch('/api/extract', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -103,9 +268,9 @@ export default function BrochureStudio() {
       setFields(result.fields);
       setCopy(result.copy);
       setMissingFields(result.missingFields);
-      setStatus(`AI extraction complete (${result.mode ?? 'openai'} mode). Review missing fields before generating.`);
+      setStatus(`${i.status_extracted} (${result.mode ?? 'openai'}). ${i.status_missing}`);
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'Extraction failed.');
+      setStatus(`${i.status_error}: ${error instanceof Error ? error.message : ''}`);
     } finally {
       setBusy(false);
     }
@@ -113,7 +278,7 @@ export default function BrochureStudio() {
 
   async function generatePdfs() {
     setBusy(true);
-    setStatus('Generating Spanish and English PDFs in one request...');
+    setStatus(i.status_generating);
     try {
       const payload: GenerationPayload = { rawText, fields, advisor, images, template, copy };
       const response = await fetch('/api/generate', {
@@ -123,10 +288,10 @@ export default function BrochureStudio() {
       if (!response.ok) throw new Error(await response.text());
       const result = await response.json() as { pdfs: GeneratedPdf[]; generatedAt: string };
       setPdfs(result.pdfs);
-      setHistory((current) => [`${new Date(result.generatedAt).toLocaleString()} · ${templateLabel(template)} · ${fields.title || 'Untitled property'}`, ...current].slice(0, 8));
-      setStatus('Both bilingual PDFs are ready to download or email.');
+      setHistory((current) => [`${new Date(result.generatedAt).toLocaleString()} · ${templateLabel(template, uiLang)} · ${fields.title || (uiLang === 'es' ? 'Propiedad sin título' : 'Untitled property')}`, ...current].slice(0, 8));
+      setStatus(i.status_generated);
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'PDF generation failed.');
+      setStatus(`${i.status_error}: ${error instanceof Error ? error.message : ''}`);
     } finally {
       setBusy(false);
     }
@@ -136,78 +301,97 @@ export default function BrochureStudio() {
     const to = recipients.split(/[;,\n]/).map((item) => item.trim()).filter(Boolean);
     if (to.length === 0 || selectedEmailPdfs.length === 0) return;
     setBusy(true);
-    setStatus('Sending selected PDFs...');
+    setStatus(i.status_sending);
     try {
       const response = await fetch('/api/send', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ to, subject: `${fields.title || 'Property'} brochures`, message: 'Please find attached the requested real estate brochure documents.', pdfs: selectedEmailPdfs })
       });
       const result = await response.json();
-      setSendHistory((current) => [`${new Date().toLocaleString()} · ${to.join(', ')} · ${selectedEmailPdfs.length} attachment(s) · ${result.mode}`, ...current].slice(0, 8));
-      setStatus(result.mode === 'simulation' ? 'Email simulated. Configure RESEND_API_KEY to send live emails.' : 'Email sent successfully.');
+      setSendHistory((current) => [`${new Date().toLocaleString()} · ${to.join(', ')} · ${selectedEmailPdfs.length} PDF(s) · ${result.mode}`, ...current].slice(0, 8));
+      setStatus(result.mode === 'simulation' ? i.status_simulated : i.status_sent);
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'Email failed.');
+      setStatus(`${i.status_error}: ${error instanceof Error ? error.message : ''}`);
     } finally {
       setBusy(false);
     }
   }
 
+  const fieldLabelsI18n: Record<keyof PropertyFields, string> = uiLang === 'es' ? {
+    title: 'Nombre', propertyType: 'Tipo', location: 'Ubicación', price: 'Precio',
+    bedrooms: 'Habitaciones', bathrooms: 'Baños', builtArea: 'Área construida',
+    lotArea: 'Terreno', parking: 'Estacionamiento', yearBuilt: 'Año', status: 'Estado'
+  } : fieldLabels;
+
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,#fff7e8_0,#f7f1e6_36%,#e9dfcf_100%)]">
       <section className="mx-auto max-w-7xl px-5 py-8 sm:px-8 lg:px-10">
+        {/* HERO */}
         <div className="mb-8 overflow-hidden rounded-[2.5rem] bg-estate-deep text-white shadow-premium">
           <div className="grid gap-8 p-8 lg:grid-cols-[1.15fr_0.85fr] lg:p-12">
             <div>
-              <p className="mb-4 text-xs font-bold uppercase tracking-[0.35em] text-estate-gold">LumiKav Brochure Studio</p>
-              <h1 className="font-serif text-5xl leading-none md:text-7xl">Premium real estate PDFs in Spanish and English.</h1>
-              <p className="mt-6 max-w-2xl text-lg leading-8 text-white/75">Upload raw property notes, complete advisor details, choose a polished template, and generate bilingual marketing brochures or formal technical sheets in one request.</p>
+              <div className="mb-5 flex items-center justify-between gap-4">
+                <p className="text-xs font-bold uppercase tracking-[0.35em] text-estate-gold">{i.eyebrow}</p>
+                <LangToggle lang={uiLang} setLang={setUiLang} />
+              </div>
+              <h1 className="font-serif text-5xl leading-none md:text-7xl">{i.hero_title}</h1>
+              <p className="mt-6 max-w-2xl text-lg leading-8 text-white/75">{i.hero_desc}</p>
               <div className="mt-8 flex flex-wrap gap-3 text-sm text-white/80">
-                {['AI extraction', 'Editable advisor profile', 'Photo ordering', 'PDF downloads', 'Resend email'].map((item) => (
-                  <span key={item} className="rounded-full border border-white/15 px-4 py-2"><Check className="mr-2 inline h-4 w-4 text-estate-gold" />{item}</span>
+                {[i.feat_ai, i.feat_advisor, i.feat_photos, i.feat_pdf, i.feat_email].map((item) => (
+                  <span key={item} className="rounded-full border border-white/15 px-4 py-2">
+                    <Check className="mr-2 inline h-4 w-4 text-estate-gold" />{item}
+                  </span>
                 ))}
               </div>
             </div>
             <div className="rounded-[2rem] border border-white/10 bg-white/10 p-6 backdrop-blur">
-              <p className="field-label !text-estate-gold">Production flow</p>
+              <p className="field-label !text-estate-gold">{i.flow_label}</p>
               <ol className="mt-5 space-y-4 text-sm text-white/80">
-                <li>1. Paste raw copy and optionally complete structured fields.</li>
-                <li>2. Upload photos, reorder them, and select the hero cover.</li>
-                <li>3. Let AI extract missing facts and write bilingual luxury copy.</li>
-                <li>4. Generate Spanish and English PDFs together.</li>
-                <li>5. Download one, download both, or send selected PDFs by email.</li>
+                {[i.flow_1, i.flow_2, i.flow_3, i.flow_4, i.flow_5].map((step) => <li key={step}>{step}</li>)}
               </ol>
-              <div className="mt-6 rounded-2xl bg-estate-gold/15 p-4 text-sm text-estate-cream">{status}</div>
+              <div className="mt-6 rounded-2xl bg-estate-gold/15 p-4 text-sm text-estate-cream">{currentStatus}</div>
             </div>
           </div>
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[1fr_410px]">
           <div className="space-y-6">
+            {/* PROPERTY INPUT */}
             <section className="premium-card">
               <div className="mb-5 flex items-center justify-between gap-4">
                 <div>
-                  <p className="field-label">Property input</p>
-                  <h2 className="font-serif text-3xl text-estate-green">Raw notes and structured fields</h2>
+                  <p className="field-label">{i.prop_label}</p>
+                  <h2 className="font-serif text-3xl text-estate-green">{i.prop_title}</h2>
                 </div>
-                <button onClick={extractWithAi} disabled={busy} className="gold-button"><Bot className="h-4 w-4" />AI extract</button>
+                <button onClick={extractWithAi} disabled={busy} className="gold-button">
+                  <Bot className="h-4 w-4" />{i.ai_btn}
+                </button>
               </div>
-              <textarea className="field-input min-h-44" value={rawText} onChange={(e) => setRawText(e.target.value)} placeholder="Paste property notes, MLS text, WhatsApp brief, or listing draft..." />
-              {missingFields.length > 0 && <div className="mt-4 rounded-2xl bg-amber-50 p-4 text-sm text-amber-900"><strong>Missing fields:</strong> {missingFields.join(', ')}</div>}
+              <textarea className="field-input min-h-44" value={rawText} onChange={(e) => setRawText(e.target.value)} placeholder={i.prop_placeholder} />
+              {missingFields.length > 0 && (
+                <div className="mt-4 rounded-2xl bg-amber-50 p-4 text-sm text-amber-900">
+                  <strong>{i.missing}</strong> {missingFields.join(', ')}
+                </div>
+              )}
               <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {fieldKeys.map((key) => (
-                  <label key={key}><span className="field-label">{fieldLabels[key]}</span><input className="field-input mt-2" value={fields[key]} onChange={(e) => updateField(key, e.target.value)} /></label>
+                  <label key={key}>
+                    <span className="field-label">{fieldLabelsI18n[key]}</span>
+                    <input className="field-input mt-2" value={fields[key]} onChange={(e) => updateField(key, e.target.value)} />
+                  </label>
                 ))}
               </div>
             </section>
 
+            {/* IMAGES */}
             <section className="premium-card">
               <div className="mb-5 flex items-center justify-between gap-4">
                 <div>
-                  <p className="field-label">Images and assets</p>
-                  <h2 className="font-serif text-3xl text-estate-green">Upload, reorder, and choose the cover</h2>
+                  <p className="field-label">{i.images_label}</p>
+                  <h2 className="font-serif text-3xl text-estate-green">{i.images_title}</h2>
                 </div>
                 <label className="green-button cursor-pointer">
-                  <ImagePlus className="h-4 w-4" />Add photos
+                  <ImagePlus className="h-4 w-4" />{i.add_photos}
                   <input type="file" multiple accept="image/*" className="hidden" onChange={(e) => handleImages(e.target.files)} />
                 </label>
               </div>
@@ -216,66 +400,94 @@ export default function BrochureStudio() {
                   <div key={image.id} className="overflow-hidden rounded-3xl border border-estate-green/10 bg-estate-cream">
                     <img src={image.dataUrl} alt={image.name} className="h-40 w-full object-cover" />
                     <div className="flex items-center justify-between gap-2 p-3 text-xs">
-                      <button className="ghost-button !px-3 !py-1" onClick={() => chooseCover(image.id)}>{image.role === 'cover' ? 'Cover' : 'Set cover'}</button>
+                      <button className="ghost-button !px-3 !py-1" onClick={() => chooseCover(image.id)}>
+                        {image.role === 'cover' ? i.set_cover : i.cover_btn}
+                      </button>
                       <div className="flex gap-1">
-                        <button className="ghost-button !px-2 !py-1" onClick={() => moveImage(index, -1)}><GripVertical className="h-3 w-3" />Up</button>
-                        <button className="ghost-button !px-2 !py-1" onClick={() => moveImage(index, 1)}>Down</button>
-                        <button className="ghost-button !px-2 !py-1" onClick={() => setImages((c) => c.filter((i) => i.id !== image.id))}><Trash2 className="h-3 w-3" /></button>
+                        <button className="ghost-button !px-2 !py-1" onClick={() => moveImage(index, -1)}><GripVertical className="h-3 w-3" />{i.up}</button>
+                        <button className="ghost-button !px-2 !py-1" onClick={() => moveImage(index, 1)}>{i.down}</button>
+                        <button className="ghost-button !px-2 !py-1" onClick={() => setImages((c) => c.filter((img) => img.id !== image.id))}><Trash2 className="h-3 w-3" /></button>
                       </div>
                     </div>
                   </div>
                 ))}
-                {images.length === 0 && <div className="rounded-3xl border border-dashed border-estate-green/30 p-8 text-sm text-estate-green/70">No photos uploaded yet. The PDF will still generate with a minimal editorial layout.</div>}
+                {images.length === 0 && (
+                  <div className="rounded-3xl border border-dashed border-estate-green/30 p-8 text-sm text-estate-green/70">{i.no_photos}</div>
+                )}
               </div>
             </section>
 
+            {/* ADVISOR */}
             <section className="premium-card">
-              <p className="field-label">Advisor profile</p>
-              <h2 className="font-serif text-3xl text-estate-green">Editable dynamic advisor information</h2>
+              <p className="field-label">{i.advisor_label}</p>
+              <h2 className="font-serif text-3xl text-estate-green">{i.advisor_title}</h2>
               <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {advisorFields.map(({ key, label, type }) => (
-                  <label key={key}><span className="field-label">{label}</span><input type={type ?? 'text'} className="field-input mt-2" value={advisor[key] ?? ''} onChange={(e) => updateAdvisor(key, e.target.value)} /></label>
+                  <label key={key}>
+                    <span className="field-label">{label}</span>
+                    <input type={type ?? 'text'} className="field-input mt-2" value={advisor[key] ?? ''} onChange={(e) => updateAdvisor(key, e.target.value)} />
+                  </label>
                 ))}
-                <label><span className="field-label">Logo</span><input type="file" accept="image/*" className="field-input mt-2" onChange={(e) => handleLogo(e.target.files?.[0])} /></label>
+                <label><span className="field-label">{i.logo}</span><input type="file" accept="image/*" className="field-input mt-2" onChange={(e) => handleLogo(e.target.files?.[0])} /></label>
               </div>
             </section>
           </div>
 
           <aside className="space-y-6">
+            {/* GENERATION */}
             <section className="premium-card sticky top-6">
-              <p className="field-label">Preview and generation</p>
+              <p className="field-label">{i.preview_label}</p>
               <h2 className="font-serif text-3xl text-estate-green">{copy.es.headline}</h2>
               <p className="mt-3 text-sm leading-6 text-estate-charcoal/70">{copy.en.description}</p>
               <div className="mt-5 grid grid-cols-2 gap-2">
-                <button onClick={() => setTemplate('premium-brochure')} className={template === 'premium-brochure' ? 'green-button' : 'ghost-button'}><Sparkles className="h-4 w-4" />Template A</button>
-                <button onClick={() => setTemplate('technical-sheet')} className={template === 'technical-sheet' ? 'green-button' : 'ghost-button'}><FileText className="h-4 w-4" />Template B</button>
+                <button onClick={() => setTemplate('premium-brochure')} className={template === 'premium-brochure' ? 'green-button' : 'ghost-button'}>
+                  <Sparkles className="h-4 w-4" />{i.tpl_a}
+                </button>
+                <button onClick={() => setTemplate('technical-sheet')} className={template === 'technical-sheet' ? 'green-button' : 'ghost-button'}>
+                  <FileText className="h-4 w-4" />{i.tpl_b}
+                </button>
               </div>
-              <button onClick={generatePdfs} disabled={busy} className="gold-button mt-5 w-full"><FileText className="h-4 w-4" />Generate ES + EN PDFs</button>
+              <button onClick={generatePdfs} disabled={busy} className="gold-button mt-5 w-full">
+                <FileText className="h-4 w-4" />{i.generate_btn}
+              </button>
               {pdfs.length > 0 && (
                 <div className="mt-5 space-y-3">
-                  {pdfs.map((pdf) => <button key={pdf.language} onClick={() => downloadPdf(pdf)} className="ghost-button w-full"><ArrowDownToLine className="h-4 w-4" />Download {pdf.language === 'es' ? 'Spanish' : 'English'} PDF</button>)}
-                  <button onClick={() => pdfs.forEach(downloadPdf)} className="green-button w-full"><ArrowDownToLine className="h-4 w-4" />Download both</button>
+                  {pdfs.map((pdf) => (
+                    <button key={pdf.language} onClick={() => downloadPdf(pdf)} className="ghost-button w-full">
+                      <ArrowDownToLine className="h-4 w-4" />
+                      {pdf.language === 'es' ? i.dl_es : i.dl_en}
+                    </button>
+                  ))}
+                  <button onClick={() => pdfs.forEach(downloadPdf)} className="green-button w-full">
+                    <ArrowDownToLine className="h-4 w-4" />{i.dl_both}
+                  </button>
                 </div>
               )}
             </section>
 
+            {/* EMAIL */}
             <section className="premium-card">
-              <p className="field-label">Email delivery</p>
-              <h2 className="font-serif text-2xl text-estate-green">Send PDFs</h2>
-              <textarea className="field-input mt-3 min-h-24" value={recipients} onChange={(e) => setRecipients(e.target.value)} placeholder="client@example.com, team@example.com" />
+              <p className="field-label">{i.email_label}</p>
+              <h2 className="font-serif text-2xl text-estate-green">{i.email_title}</h2>
+              <textarea className="field-input mt-3 min-h-24" value={recipients} onChange={(e) => setRecipients(e.target.value)} placeholder={i.email_placeholder} />
               <select className="field-input mt-3" value={emailSelection} onChange={(e) => setEmailSelection(e.target.value as 'both' | Language)}>
-                <option value="both">Send both PDFs</option>
-                <option value="es">Spanish only</option>
-                <option value="en">English only</option>
+                <option value="both">{i.send_both}</option>
+                <option value="es">{i.send_es}</option>
+                <option value="en">{i.send_en}</option>
               </select>
-              <button onClick={sendEmail} disabled={busy || pdfs.length === 0} className="green-button mt-3 w-full"><Mail className="h-4 w-4" />Send selected</button>
+              <button onClick={sendEmail} disabled={busy || pdfs.length === 0} className="green-button mt-3 w-full">
+                <Mail className="h-4 w-4" />{i.send_btn}
+              </button>
             </section>
 
+            {/* HISTORY */}
             <section className="premium-card">
-              <p className="field-label">History</p>
-              <h2 className="font-serif text-2xl text-estate-green">Generation and send log</h2>
+              <p className="field-label">{i.history_label}</p>
+              <h2 className="font-serif text-2xl text-estate-green">{i.history_title}</h2>
               <div className="mt-4 space-y-2 text-sm text-estate-charcoal/70">
-                {[...history, ...sendHistory].length === 0 ? 'No history yet.' : [...history, ...sendHistory].map((item) => <p key={item} className="rounded-2xl bg-estate-cream p-3">{item}</p>)}
+                {[...history, ...sendHistory].length === 0
+                  ? i.no_history
+                  : [...history, ...sendHistory].map((item) => <p key={item} className="rounded-2xl bg-estate-cream p-3">{item}</p>)}
               </div>
             </section>
           </aside>
