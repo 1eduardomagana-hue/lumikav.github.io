@@ -1,0 +1,58 @@
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
+import type { ImageAnalysis } from '@/lib/types';
+
+export const runtime = 'nodejs';
+export const maxDuration = 60;
+
+const schema = z.object({
+  images: z.array(z.object({ id: z.string(), dataUrl: z.string() }))
+});
+
+const SYSTEM = `You are a professional real estate photographer and copywriter.
+Analyze each property photo and return a JSON array. For each image output:
+{
+  "imageId": "<same id passed in>",
+  "detectedArea": "<short area name in Spanish, e.g. Sala, Cocina, Recámara principal, Baño, Terraza, Fachada, Área social, Jardín>",
+  "captionTitleEs": "<4-6 word elegant title in Spanish>",
+  "captionEs": "<one sentence, max 15 words, factual, commercial, elegant>",
+  "captionTitleEn": "<4-6 word elegant title in English>",
+  "captionEn": "<one sentence, max 15 words, factual, commercial, elegant>",
+  "sellingPointsEs": ["<observed benefit 1>","<observed benefit 2>","<observed benefit 3>"],
+  "sellingPointsEn": ["<observed benefit 1>","<observed benefit 2>","<observed benefit 3>"],
+  "recommendedUse": "<cover|main_gallery|gallery|amenity|detail>"
+}
+STRICT RULES: Only describe what is VISIBLY in the image. Never invent measurements, materials brands, or amenities not visible. Use hedged language: se aprecia, aparenta, ofrece sensación de. Selling points max 3, factual, < 8 words each. Captions max 15 words, never generic. Return ONLY a valid JSON array, no markdown.`;
+
+export async function POST(request: Request) {
+  const body = schema.parse(await request.json());
+  if (!process.env.OPENAI_API_KEY) return NextResponse.json({ analyses: [], mode: 'no_key' });
+
+  try {
+    const { default: OpenAI } = await import('openai');
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const BATCH = 4;
+    const allAnalyses: ImageAnalysis[] = [];
+
+    for (let i = 0; i < body.images.length; i += BATCH) {
+      const batch = body.images.slice(i, i + BATCH);
+      const content: any[] = [
+        { type: 'text', text: `Analyze these ${batch.length} property images. Return a JSON array with ${batch.length} objects in order.` },
+        ...batch.flatMap(img => [
+          { type: 'text', text: `Image ID: ${img.id}` },
+          { type: 'image_url', image_url: { url: img.dataUrl, detail: 'low' } }
+        ])
+      ];
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4o-mini', max_tokens: 1500,
+        messages: [{ role: 'system', content: SYSTEM }, { role: 'user', content }]
+      });
+      const raw = response.choices[0]?.message.content || '[]';
+      const parsed = JSON.parse(raw.replace(/```json|```/g, '').trim()) as ImageAnalysis[];
+      allAnalyses.push(...parsed);
+    }
+    return NextResponse.json({ analyses: allAnalyses, mode: 'openai' });
+  } catch (error) {
+    return NextResponse.json({ analyses: [], mode: 'error', warning: error instanceof Error ? error.message : 'failed' });
+  }
+}
