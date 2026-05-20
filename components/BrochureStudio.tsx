@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowDownToLine, Bot, Check, FileText, GripVertical, ImagePlus, Mail, Sparkles, Trash2 } from 'lucide-react';
+import { ArrowDownToLine, Bot, Check, FileText, GripVertical, ImagePlus, Mail, Sparkles, Trash2, Wand2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { defaultAdvisor, emptyFields, fallbackCopy, fieldLabels } from '@/lib/defaults';
 import type { AdvisorInfo, AiExtractionResult, GeneratedPdf, GenerationPayload, Language, MarketingCopy, PropertyFields, TemplateId, UploadedImage } from '@/lib/types';
@@ -49,6 +49,11 @@ const t: Record<UILang, Record<string, string>> = {
     dl_both: 'Descargar ambos PDFs',
     dl_html_es: 'Flyer HTML (ES)',
     dl_html_en: 'Flyer HTML (EN)',
+    analyze_btn: 'Analizar fotos con IA',
+    analyzing: 'Analizando fotos…',
+    analyze_done: 'Análisis completo — captions aplicados.',
+    analyze_none: 'Sube fotos primero para analizar.',
+    analyze_no_key: 'Sin API key de OpenAI — actívala en variables de entorno.',
     email_label: 'Envío por email',
     email_title: 'Enviar PDFs',
     email_placeholder: 'cliente@ejemplo.com, equipo@ejemplo.com',
@@ -117,6 +122,11 @@ const t: Record<UILang, Record<string, string>> = {
     dl_both: 'Download both PDFs',
     dl_html_es: 'HTML Flyer (ES)',
     dl_html_en: 'HTML Flyer (EN)',
+    analyze_btn: 'Analyze photos with AI',
+    analyzing: 'Analyzing photos…',
+    analyze_done: 'Analysis complete — captions applied.',
+    analyze_none: 'Upload photos first.',
+    analyze_no_key: 'No OpenAI API key configured.',
     email_label: 'Email delivery',
     email_title: 'Send PDFs',
     email_placeholder: 'client@example.com, team@example.com',
@@ -321,6 +331,30 @@ export default function BrochureStudio() {
     }
   }
 
+  async function analyzeImages() {
+    if (!images.length) { setStatus(i.analyze_none); return; }
+    setBusy(true);
+    setStatus(i.analyzing);
+    try {
+      const payload = images.map(img => ({ id: img.id, dataUrl: img.dataUrl }));
+      const response = await fetch('/api/analyze-images', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ images: payload })
+      });
+      const result = await response.json() as { analyses: import('@/lib/types').ImageAnalysis[]; mode: string };
+      if (result.mode === 'no_key') { setStatus(i.analyze_no_key); return; }
+      setImages(current => current.map(img => {
+        const analysis = result.analyses.find(a => a.imageId === img.id);
+        return analysis ? { ...img, analysis } : img;
+      }));
+      setStatus(i.analyze_done);
+    } catch (error) {
+      setStatus(`Error: ${error instanceof Error ? error.message : 'analysis failed'}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function generatePdfs() {
     setBusy(true);
     setStatus(i.status_generating);
@@ -445,10 +479,17 @@ export default function BrochureStudio() {
                       {uiLang === 'es' ? `Eliminar (${selectedIds.size})` : `Delete (${selectedIds.size})`}
                     </button>
                   )}
-                  <label className="green-button cursor-pointer">
-                    <ImagePlus className="h-4 w-4" />{i.add_photos}
-                    <input type="file" multiple accept="image/*" className="hidden" onChange={(e) => handleImages(e.target.files)} />
-                  </label>
+                  <div className="flex items-center gap-2">
+                    {images.length > 0 && (
+                      <button onClick={analyzeImages} disabled={busy} className="ghost-button">
+                        <Wand2 className="h-4 w-4" />{i.analyze_btn}
+                      </button>
+                    )}
+                    <label className="green-button cursor-pointer">
+                      <ImagePlus className="h-4 w-4" />{i.add_photos}
+                      <input type="file" multiple accept="image/*" className="hidden" onChange={(e) => handleImages(e.target.files)} />
+                    </label>
+                  </div>
                 </div>
               </div>
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -470,6 +511,12 @@ export default function BrochureStudio() {
                         {image.role === 'cover' && (
                           <span className="absolute right-2 top-2 rounded-full bg-estate-gold px-2 py-0.5 text-[10px] font-bold text-estate-deep">
                             {uiLang === 'es' ? 'PORTADA' : 'COVER'}
+                          </span>
+                        )}
+                        {/* Analysis badge */}
+                        {image.analysis && (
+                          <span className="absolute left-2 bottom-2 rounded-full bg-estate-deep/80 px-2 py-0.5 text-[9px] text-estate-gold font-semibold backdrop-blur">
+                            {image.analysis.detectedArea}
                           </span>
                         )}
                       </div>
