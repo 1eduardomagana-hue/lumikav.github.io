@@ -3,6 +3,7 @@
 import { ArrowDownToLine, Bot, Check, FileText, GripVertical, ImagePlus, Mail, Sparkles, Trash2, Wand2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { defaultAdvisor, emptyFields, fallbackCopy, fieldLabels } from '@/lib/defaults';
+import SharePanel from '@/components/SharePanel';
 import type { AdvisorInfo, AiExtractionResult, GeneratedPdf, GenerationPayload, Language, MarketingCopy, PropertyFields, TemplateId, UploadedImage } from '@/lib/types';
 
 // ── UI language (interface) vs PDF language (output) ──────────────────────────
@@ -10,8 +11,8 @@ type UILang = 'es' | 'en';
 
 const t: Record<UILang, Record<string, string>> = {
   es: {
-    eyebrow: 'LumiKav Brochure Studio',
-    hero_title: 'PDFs inmobiliarios premium en español e inglés.',
+    eyebrow: 'Broker Brochure Studio',
+    hero_title: 'Propiedades en digital premium en español e inglés.',
     hero_desc: 'Sube notas de la propiedad, completa los datos del asesor, elige una plantilla y genera folletos bilingües en una sola solicitud.',
     flow_label: 'Flujo de producción',
     flow_1: '1. Pega el texto de la propiedad y completa los campos.',
@@ -245,6 +246,8 @@ export default function BrochureStudio() {
   const [missingFields, setMissingFields] = useState<string[]>([]);
   const [pdfs, setPdfs] = useState<GeneratedPdf[]>([]);
   const [htmlFlyers, setHtmlFlyers] = useState<Record<string, { filename: string; base64: string }>>({});
+  // RESEND_API_KEY detection is done server-side; we check via /api/send response
+  const [hasResendKey, setHasResendKey] = useState(false);
   const [history, setHistory] = useState<string[]>([]);
   const [sendHistory, setSendHistory] = useState<string[]>([]);
   const [recipients, setRecipients] = useState('');
@@ -368,6 +371,10 @@ export default function BrochureStudio() {
       const result = await response.json() as { pdfs: GeneratedPdf[]; html: Record<string, { filename: string; base64: string }>; generatedAt: string };
       setPdfs(result.pdfs);
       setHtmlFlyers(result.html ?? {});
+      // Probe send endpoint to detect if Resend key is configured
+      fetch('/api/send', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ to:['probe@check.local'], subject:'probe', pdfs:[], _probe:true })
+      }).then(r=>r.json()).then(r=>setHasResendKey(r.mode==='resend'||r.hasKey===true)).catch(()=>{});
       setHistory((current) => [`${new Date(result.generatedAt).toLocaleString()} · ${templateLabel(template, uiLang)} · ${fields.title || (uiLang === 'es' ? 'Propiedad sin título' : 'Untitled property')}`, ...current].slice(0, 8));
       setStatus(i.status_generated);
     } catch (error) {
@@ -603,20 +610,15 @@ export default function BrochureStudio() {
               )}
             </section>
 
-            {/* EMAIL */}
-            <section className="premium-card">
-              <p className="field-label">{i.email_label}</p>
-              <h2 className="font-serif text-2xl text-estate-green">{i.email_title}</h2>
-              <textarea className="field-input mt-3 min-h-24" value={recipients} onChange={(e) => setRecipients(e.target.value)} placeholder={i.email_placeholder} />
-              <select className="field-input mt-3" value={emailSelection} onChange={(e) => setEmailSelection(e.target.value as 'both' | Language)}>
-                <option value="both">{i.send_both}</option>
-                <option value="es">{i.send_es}</option>
-                <option value="en">{i.send_en}</option>
-              </select>
-              <button onClick={sendEmail} disabled={busy || pdfs.length === 0} className="green-button mt-3 w-full">
-                <Mail className="h-4 w-4" />{i.send_btn}
-              </button>
-            </section>
+            {/* SHARE PANEL */}
+            <SharePanel
+              data={{ fields, copy, advisor }}
+              hasResendKey={hasResendKey}
+              lang={uiLang}
+              disabled={pdfs.length === 0}
+              pdfBase64={pdfs.find(p => p.language === uiLang)?.base64}
+              pdfFilename={pdfs.find(p => p.language === uiLang)?.filename}
+            />
 
             {/* HISTORY */}
             <section className="premium-card">
